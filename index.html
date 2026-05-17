@@ -29,54 +29,24 @@
             <b>Reglas de login inteligente:</b><br>
             • Incluye <b>'admin'</b> para Administrador.<br>
             • Incluye <b>'dev'</b> para Desarrollador Indie.<br>
-            • Cualquier otro correo para Usuario estándar.
+            • Cualquier otro formato asignará el rol de Comprador.
         </p>
-        <form onsubmit="handleAuth(event)">
-            <input type="email" id="email" placeholder="Correo electrónico institucional" required>
-            <input type="password" id="pass" placeholder="Clave de seguridad (mín. 8 caracteres)" required>
-            <label class="label-rgpd">
-                <input type="checkbox" required> Declaro conformidad explícita con el tratamiento seguro de datos de conformidad con el RGPD europeo.
-            </label>
-            <button type="submit" class="btn-p">Autenticar Entrada</button>
-        </form>
-    </section>
-
-    <section id="sec-admin" class="hidden">
-        <div class="card" style="border-top: 4px solid var(--a);">
-            <h2>Panel Maestro de Administración e Infraestructura</h2>
-            <p class="text-muted">Módulo exclusivo para perfiles de auditoría informática y gestión automatizada del sistema perimetral.</p>
-            <div class="grid">
-                <div class="card" style="margin:0; padding:1.5rem; background:#fff1f2;">
-                    <h3 style="color:var(--a); margin-top:0;">🛡️ Cortafuegos Perimetral</h3>
-                    <p style="font-size:0.9rem;">Estado: <b style="color:var(--success)">ACTIVO Y PROTEGIDO</b></p>
-                    <p style="font-size:0.85rem; color:var(--text-muted);">Filtrado de peticiones maliciosas por IP configurado correctamente.</p>
-                </div>
-                <div class="card" style="margin:0; padding:1.5rem; background:#f0fdf4;">
-                    <h3 style="color:var(--success); margin-top:0;">🔒 Resguardo de Credenciales</h3>
-                    <p style="font-size:0.9rem;">Algoritmo activo: <b style="color:var(--p)">AES-256 / BCrypt</b></p>
-                    <p style="font-size:0.85rem; color:var(--text-muted);">Cumplimiento estricto del RGPD. Los datos viajan en formato hasheado.</p>
-                </div>
-                <div class="card" style="margin:0; padding:1.5rem; background:#eff6ff;">
-                    <h3 style="color:var(--p); margin-top:0;">💾 Sistema de Contingencia</h3>
-                    <p style="font-size:0.9rem;">Base de datos operativa: <b>nexus_games</b></p>
-                    <button class="btn-p" style="margin-top:10px; font-size:0.85rem; padding:0.5rem;" onclick="alert('Iniciando volcado: mysqldump -u root -p pixel_pro > backup_manual.sql \n\n¡Copia de seguridad generada con éxito en el servidor!')">Forzar Backup Manual</button>
-                </div>
-            </div>
+        <div style="display:flex; flex-direction:column; gap:15px;">
+            <input type="email" id="login-email" placeholder="Correo Electrónico Corporate" value="pablo@dev.com" style="padding:0.8rem; border-radius:6px; border:1px solid #cbd5e1;">
+            <input type="password" id="login-pass" placeholder="Clave de Seguridad (Mín. 8 caracteres)" value="12345678" style="padding:0.8rem; border-radius:6px; border:1px solid #cbd5e1;">
+            <button class="btn-p" onclick="login()">Autenticar en Servidor</button>
         </div>
     </section>
 
     <section id="sec-shop" class="hidden">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <h2>Catálogo Global de Videojuegos</h2>
-            <div id="cart-counter" style="background:var(--s); color:white; padding:0.5rem 1rem; border-radius:8px; font-weight:bold; font-size:0.9rem;">🛒 Carrito: 0 juegos</div>
-        </div>
-        <div class="grid" id="product-list"></div>
+        <h2 style="margin-bottom:1.5rem;">🎯 Catálogo General de Videojuegos</h2>
+        <div id="store-list" class="grid-shop"></div>
     </section>
 
     <section id="sec-library" class="hidden">
-        <h2>Mi Biblioteca de Software</h2>
-        <p class="text-muted" style="margin-bottom:2rem;">Tus licencias adquiridas listas para ejecutar. Puedes enviar feedback directo a los desarrolladores indie.</p>
-        <div id="library-list"></div>
+        <h2>📚 Mi Biblioteca de Software</h2>
+        <p style="color:var(--text-muted); margin-bottom:2rem;">Acceso a licencias adquiridas y soporte técnico.</p>
+        <div id="library-games"></div>
     </section>
 
     <section id="sec-dev" class="hidden">
@@ -100,11 +70,28 @@
         </div>
 
         <div class="card">
-            <h3>💬 Gestión de Reseñas y Feedback Comunitario</h3>
+            <h3>💬 Gestión de Feedback Comunitario</h3>
+            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">Conteste las incidencias remitidas por sus compradores para mantener su reputación comercial.</p>
             <div id="dev-comments-list"></div>
         </div>
     </section>
 
+    <section id="sec-admin" class="hidden">
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+            <div class="card" style="border-top:4px solid var(--a);">
+                <h2>Panel Maestro de Auditoría Perimetral</h2>
+                <div style="margin:1.5rem 0; padding:1rem; background:#fff1f2; border-radius:8px; border:1px solid #fecdd3;">
+                    <p style="margin:0; color:#9f1239; font-weight:600;">🛡️ Estado del Cortafuegos: Activo</p>
+                </div>
+                <button class="btn-p" style="background:var(--s);" onclick="showNotification('Ejecutando script: Copia de seguridad guardada en backup_db.sql')">Forzar Volcado de Backup Manual</button>
+            </div>
+            <div class="card" style="background:var(--s); color:white;">
+                <h3 style="color:white; margin-top:0;">Versión Activa</h3>
+                <p style="font-size:2rem; font-weight:800; color:var(--a); margin:0;">v2.1.0</p>
+                <p style="font-size:0.85rem; color:#94a3b8; margin-top:10px;">Servicios y réplicas en clúster estables.</p>
+            </div>
+        </div>
+    </section>
 </div>
 
 <script src="script.js"></script>

@@ -1,222 +1,404 @@
-// BASE DE DATOS EXTENDIDA (CATÁLOGO GRANDE)
-let games = [
-    { id: 1, title: "TEKKEN 8", price: 14.99, dev: "Bandai_Namco", image: "IMGS/Tekken8.jpg", comments: [] },
-    { id: 2, title: "Kingdom Hearts IV", price: 99.99, dev: "Squarenix", image: "IMGS/Kingdom_Hearts_IV.jpg", comments: [] },
-    { id: 3, title: "Marvel Spiderman 3", price: 69.99, dev: "Insomniac_Games", image: "IMGS/Marvel_Spiderman_3.jpg", comments: [] },
-    { id: 4, title: "Grand Theft Auto VI", price: 99.99, dev: "RockstarGames", image: "IMGS/GTAVI.jpg", comments: [] },
-    { id: 5, title: "Dying Light: The Beast", price: 59.99, dev: "Techland", image: "IMGS/Dying_Light_Beast.jpg", comments: [] },
-    { id: 6, title: "*Furi", price: 6.50, dev: "The_Game_Bakers", image: "IMGS/Furi.jpg", comments: [] },
-    { id: 7, title: "Bloodborne PC Edition", price: 79.99, dev: "FromSoftware", image: "IMGS/Bloodborne.jpg", comments: [] },
-];
-
+// script.js - Controlador de UI y Comunicaciones Asíncronas
+const API_URL = 'http://localhost:3000/api';
 let currentUser = null;
-let myLibrary = [];
-let cart = [];
+let cart = JSON.parse(localStorage.getItem('nexus_cart')) || [];
 
-function showSection(id) {
-    const sections = ['sec-login', 'sec-admin', 'sec-shop', 'sec-library', 'sec-dev'];
-    sections.forEach(sec => {
-        const el = document.getElementById(sec);
-        if(el) el.classList.add('hidden');
+document.addEventListener('DOMContentLoaded', () => {
+    updateCartDOM();
+    injectPaymentModal();
+});
+
+// --- MOTOR DE NOTIFICACIONES TOAST ---
+function showNotification(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.style.position = 'fixed';
+    toast.style.bottom = '25px';
+    toast.style.right = '25px';
+    toast.style.padding = '1rem 1.8rem';
+    toast.style.borderRadius = '8px';
+    toast.style.color = 'white';
+    toast.style.fontWeight = '600';
+    toast.style.zIndex = '10000';
+    toast.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.2)';
+    toast.style.background = type === 'success' ? '#10b981' : '#f43f5e';
+    toast.style.transition = 'all 0.3s ease';
+    
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+}
+
+// --- ENRUTADOR SPA ---
+function showSection(sectionId) {
+    const sections = ['sec-login', 'sec-shop', 'sec-library', 'sec-dev', 'sec-admin'];
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
     });
-    
-    if (id === 'shop') renderStore();
-    if (id === 'library') renderLibrary();
-    if (id === 'dev') renderDevPanel();
 
-    const target = document.getElementById('sec-' + id);
-    if(target) target.classList.remove('hidden');
+    const target = document.getElementById(`sec-${sectionId}`);
+    if (target) target.classList.remove('hidden');
+
+    if (sectionId === 'shop') renderStore();
+    if (sectionId === 'library') renderLibrary();
+    if (sectionId === 'dev') renderDevPanel();
 }
 
-function handleAuth(e) {
-    e.preventDefault();
-    const email = document.getElementById('email').value.toLowerCase();
-    const pass = document.getElementById('pass').value;
+// --- LOGIN ---
+function login() {
+    const email = document.getElementById('login-email').value;
+    const pass = document.getElementById('login-pass').value;
 
-    if(pass.length < 8) {
-        alert("Seguridad: La contraseña debe tener al menos 8 caracteres.");
-        return;
-    }
-    
-    currentUser = { email: email, role: 'USER' };
-    const badge = document.getElementById('role-badge');
-    badge.className = "role-badge ";
-
-    // DETERMINACIÓN INTELIGENTE DE LOS TRES ROLES
-    if (email.includes('admin')) {
-        currentUser.role = 'ADMIN';
-        badge.innerText = "ADMINISTRADOR SISTEMA";
-        badge.classList.add('badge-admin');
-        showSection('admin');
-    } else if (email.includes('dev')) {
-        currentUser.role = 'DEV';
-        badge.innerText = "CREADOR INDIE";
-        badge.classList.add('badge-dev');
-        showSection('dev');
-    } else {
-        currentUser.role = 'USER';
-        badge.innerText = "COMPRADOR PREMIUM";
-        badge.classList.add('badge-user');
-        showSection('shop');
-    }
-
-    document.getElementById('auth-btns').classList.add('hidden');
-    document.getElementById('user-menu').classList.remove('hidden');
-}
-
-function logout() {
-    currentUser = null;
-    cart = [];
-    document.getElementById('cart-counter').innerText = "🛒 Carrito: 0 juegos";
-    document.getElementById('auth-btns').classList.remove('hidden');
-    document.getElementById('user-menu').classList.add('hidden');
-    document.getElementById('email').value = "";
-    document.getElementById('pass').value = "";
-    showSection('login');
-}
-
-function renderStore() {
-    const list = document.getElementById('product-list');
-    if(!list) return;
-    
-    list.innerHTML = games.map(g => `
-        <div class="game-card">
-            <div class="game-card-img-container">
-                <img src="${g.image}" alt="${g.title}" class="game-card-img">
-            </div>
-            <div class="game-card-body">
-                <h3>${g.title}</h3>
-                <span class="dev-tag">Estudio: ${g.dev}</span>
-                <p class="price">${g.price.toFixed(2)}€</p>
-                <button class="btn-p" onclick="addToCart(${g.id})">Añadir al Carrito</button>
-            </div>
-        </div>
-    `).join('');
-}
-
-function addToCart(id) {
-    const game = games.find(g => g.id === id);
-    if (myLibrary.some(item => item.id === id)) {
-        alert("Ya posees una licencia de este software en tu biblioteca.");
-        return;
-    }
-    if (cart.some(item => item.id === id)) {
-        alert("Este producto ya está en tu cesta de la compra.");
-        return;
-    }
-    cart.push(game);
-    document.getElementById('cart-counter').innerText = `🛒 Carrito: ${cart.length} juegos`;
-    
-    if(confirm(`¿Deseas procesar la pasarela de pago para: ${game.title}?`)) {
-        myLibrary.push(game);
-        cart = cart.filter(item => item.id !== id);
-        document.getElementById('cart-counter').innerText = `🛒 Carrito: ${cart.length} juegos`;
-        alert("¡Transacción procesada! Licencia inyectada en tu biblioteca.");
-    }
-}
-
-function renderLibrary() {
-    const container = document.getElementById('library-list');
-    if(!container) return;
-    if (myLibrary.length === 0) {
-        container.innerHTML = `<p style="text-align:center; color:var(--text-muted); padding:3rem; background:white; border-radius:12px;">Tu biblioteca de licencias está vacía. Explora el catálogo comercial.</p>`;
+    if (!email || pass.length < 8) {
+        showNotification("Autenticación denegada: Contraseña inferior a 8 caracteres.", "error");
         return;
     }
 
-    container.innerHTML = myLibrary.map(g => `
-        <div class="card" style="margin-bottom:1.5rem; padding:1.5rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="margin:0; color:var(--s); flex:1;">🎮 ${g.title}</h3>
-                <button class="btn-p" style="width:auto; background:var(--success); font-size:0.85rem; padding:0.5rem 1rem;" onclick="alert('Ejecutando binario del juego... Simulación estable a 60FPS')">Ejecutar Software</button>
-            </div>
+    fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pass })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            currentUser = data.user;
+            document.getElementById('auth-btns').classList.add('hidden');
+            document.getElementById('user-menu').classList.remove('hidden');
             
-            <div class="comment-box">
-                <h4 style="margin:0 0 0.5rem 0;">📨 Canal de Opiniones y Reporte Técnico</h4>
-                <div id="comments-area-${g.id}">
-                    ${g.comments.map(c => `
-                        <div style="font-size:0.9rem; margin-bottom:0.5rem;">
-                            <b>${c.user}:</b> "${c.text}"
-                            ${c.reply ? `<div class="reply-box"><b>Respuesta oficial del Autor:</b> ${c.reply}</div>` : ''}
-                        </div>
-                    `).join('')}
+            const badge = document.getElementById('role-badge');
+            badge.textContent = currentUser.rol;
+            badge.className = `role-badge badge-${currentUser.rol.toLowerCase()}`;
+
+            document.getElementById('btn-my-games').classList.toggle('hidden', currentUser.rol === 'ADMIN');
+            
+            // Redirección inteligente de paneles según rol
+            if (currentUser.rol === 'DEV') {
+                showSection('dev');
+            } else if (currentUser.rol === 'ADMIN') {
+                showSection('admin');
+            } else {
+                showSection('shop');
+            }
+            
+            showNotification(`Bienvenido al sistema, ${currentUser.username}.`);
+        }
+    })
+    .catch(() => showNotification("Error de enlace: El servidor backend está apagado.", "error"));
+}
+
+// --- RENDER TIENDA ---
+function renderStore() {
+    const list = document.getElementById('store-list');
+    if (!list) return;
+
+    fetch(`${API_URL}/juegos`)
+        .then(res => res.json())
+        .then(games => {
+            list.innerHTML = games.map(g => `
+                <div class="card" style="display:flex; flex-direction:column; justify-content:space-between; height:340px; padding:1rem;">
+                    <div style="text-align:center;">
+                        <img src="${g.imagen || 'https://via.placeholder.com/150x200?text=Nexus+Games'}" 
+                             alt="${g.titulo}" 
+                             style="width:100%; height:180px; object-fit:cover; border-radius:8px; margin-bottom:0.8rem;">
+                        
+                        <h3 style="margin:0 0 0.3rem 0; font-size:1.15rem; text-align:left;">${g.titulo}</h3>
+                        <p class="price" style="font-size:1.3rem; font-weight:700; color:var(--p); margin:0; text-align:left;">${g.precio} €</p>
+                    </div>
+                    <button class="btn-p" style="margin-top:auto; width:100%;" onclick="addToCart(${g.id}, '${g.titulo.replace(/'/g, "\\'")}', ${g.precio})">
+                        Agregar al Carrito
+                    </button>
                 </div>
-                <div style="display:flex; gap:10px; margin-top:0.8rem;">
-                    <input type="text" id="input-comment-${g.id}" placeholder="Escribe una reseña técnica..." style="flex:1; padding:0.5rem; border-radius:6px; border:1px solid #cbd5e1;">
-                    <button class="btn-p" style="width:auto; padding:0.5rem 1rem;" onclick="sendComment(${g.id})">Enviar Feedback</button>
+            `).join('');
+        });
+}
+
+// --- LOGICA DEL CARRITO ---
+function addToCart(id, titulo, precio) {
+    if (cart.some(item => item.id === id)) {
+        showNotification("El producto ya está asignado al carro.", "error");
+        return;
+    }
+    cart.push({ id, titulo, precio });
+    localStorage.setItem('nexus_cart', JSON.stringify(cart));
+    updateCartDOM();
+    showNotification(`"${titulo}" integrado al carro de compras.`);
+}
+
+function updateCartDOM() {
+    let counter = document.getElementById('cart-counter');
+    if (!counter) {
+        const menu = document.getElementById('user-menu');
+        if (menu) {
+            counter = document.createElement('button');
+            counter.id = 'cart-counter';
+            counter.className = 'btn-s';
+            counter.style.background = 'var(--a)';
+            counter.style.color = 'white';
+            counter.style.border = 'none';
+            counter.onclick = () => openPaymentPasarela();
+            menu.insertBefore(counter, document.getElementById('role-badge'));
+        }
+    }
+    if (counter) {
+        counter.innerHTML = `🛒 Carrito (${cart.length})`;
+    }
+}
+
+// --- PASARELA DE PAGO ---
+function injectPaymentModal() {
+    if (document.getElementById('payment-modal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'payment-modal';
+    modal.className = 'hidden'; 
+    modal.style.position = 'fixed';
+    modal.style.top = '0'; modal.style.left = '0'; modal.style.width = '100%'; modal.style.height = '100%';
+    modal.style.background = 'rgba(15,23,42,0.7)'; modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center'; modal.style.zIndex = '99999';
+    modal.style.display = 'none';
+    
+    modal.innerHTML = `
+        <div class="card" style="width:400px; padding:2rem; background:white; border-radius:12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">
+            <h3 style="margin-top:0; color:var(--s);">💳 Transacción Bancaria Segura</h3>
+            <p id="payment-total" style="font-weight:700; color:var(--p); margin-bottom: 1rem;"></p>
+            <div style="display:flex; flex-direction:column; gap:12px; margin:1.5rem 0;">
+                <input type="text" id="card-num" placeholder="Número de Tarjeta (16 dígitos)" maxLength="16" style="padding:0.7rem; border-radius:6px; border:1px solid #cbd5e1;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <input type="text" id="card-exp" placeholder="MM/AA" maxLength="5" style="padding:0.7rem; border-radius:6px; border:1px solid #cbd5e1;">
+                    <input type="password" id="card-cvv" placeholder="CVV" maxLength="3" style="padding:0.7rem; border-radius:6px; border:1px solid #cbd5e1;">
                 </div>
             </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button class="btn-s" style="background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1;" onclick="closePaymentPasarela()">Cancelar</button>
+                <button class="btn-p" style="background:var(--success);" onclick="processSecurePayment()">Verificar Pago</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function openPaymentPasarela() {
+    if (cart.length === 0) return showNotification("El carro de compras está vacío.", "error");
+    
+    // Calculamos el total
+    const total = cart.reduce((sum, item) => sum + item.precio, 0).toFixed(2);
+    document.getElementById('payment-total').textContent = `Importe a liquidar: ${total} €`;
+    
+    // Buscamos o creamos el contenedor para la lista de productos dentro del modal
+    let listaProductos = document.getElementById('cart-items-list');
+    if (!listaProductos) {
+        // Si no existe el contenedor de la lista, lo creamos justo encima del total
+        listaProductos = document.createElement('div');
+        listaProductos.id = 'cart-items-list';
+        listaProductos.style.maxHeight = '150px';
+        listaProductos.style.overflowY = 'auto';
+        listaProductos.style.marginBottom = '1rem';
+        listaProductos.style.borderBottom = '1px solid #e2e8f0';
+        listaProductos.style.paddingBottom = '0.5rem';
+        const totalElement = document.getElementById('payment-total');
+        totalElement.parentNode.insertBefore(listaProductos, totalElement);
+    }
+
+    // Dibujamos los juegos que hay en el carrito con su botón de eliminar
+    listaProductos.innerHTML = cart.map(item => `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.95rem;">
+            <span>📋 ${item.titulo} (${item.precio} €)</span>
+            <button onclick="removeFromCart(${item.id})" style="background:#fee2e2; color:#ef4444; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-weight:600; font-size:0.8rem;">
+                Eliminar
+            </button>
         </div>
     `).join('');
+
+    const modal = document.getElementById('payment-modal');
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
 }
 
-function sendComment(gameId) {
-    const input = document.getElementById(`input-comment-${gameId}`);
-    if (!input.value || !input.value.trim()) return;
-
-    const game = games.find(g => g.id === gameId);
-    game.comments.push({
-        user: currentUser.email,
-        text: input.value
-    });
-
-    input.value = "";
-    renderLibrary();
+function removeFromCart(id) {
+    // Filtramos el array para dejar fuera el ID que queremos borrar
+    cart = cart.filter(item => item.id !== id);
+    
+    // Guardamos el carrito actualizado en el almacenamiento local
+    localStorage.setItem('nexus_cart', JSON.stringify(cart));
+    
+    // Actualizamos el contador del botón superior de la tienda
+    updateCartDOM();
+    
+    // Si el carrito se ha quedado completamente vacío, cerramos la ventana automáticamente
+    if (cart.length === 0) {
+        closePaymentPasarela();
+        showNotification("El carrito se ha quedado vacío.");
+    } else {
+        // Si aún quedan juegos, volvemos a renderizar la lista y el nuevo total sin cerrar el modal
+        const total = cart.reduce((sum, item) => sum + item.precio, 0).toFixed(2);
+        document.getElementById('payment-total').textContent = `Importe a liquidar: ${total} €`;
+        openPaymentPasarela(); 
+        showNotification("Producto retirado del carrito.");
+    }
 }
 
-function renderDevPanel() {
-    const container = document.getElementById('dev-comments-list');
-    if(!container) return;
-    const myGames = games.filter(g => g.dev === currentUser.email || g.dev.includes('Indie') || g.dev === 'System_Indie');
+function closePaymentPasarela() {
+    const modal = document.getElementById('payment-modal');
+    modal.classList.add('hidden'); // ¡Añadimos hidden para que se oculte!
+    modal.style.display = 'none';
+}
 
-    if (myGames.every(g => g.comments.length === 0)) {
-        container.innerHTML = `<p style="color:var(--text-muted); font-size:0.9rem;">No hay hilos de conversación pendientes en tus videojuegos publicados.</p>`;
+function closePaymentPasarela() {
+    document.getElementById('payment-modal').style.display = 'none';
+}
+
+function processSecurePayment() {
+    const num = document.getElementById('card-num').value;
+    const exp = document.getElementById('card-exp').value;
+    const cvv = document.getElementById('card-cvv').value;
+
+    if (num.length !== 16 || exp.length < 5 || cvv.length !== 3) {
+        showNotification("Datos de tarjeta incompletos.", "error");
         return;
     }
 
-    container.innerHTML = myGames.map(g => g.comments.map((c, index) => `
-        <div class="comment-box" style="background:#fff;">
-            <p style="margin:0 0 0.5rem 0;"><b>Juego:</b> ${g.title} | <b>Usuario:</b> ${c.user}</p>
-            <p style="margin:0; font-style:italic; color:var(--s);">"${c.text}"</p>
-            ${c.reply ? `
-                <div class="reply-box"><b>Tú:</b> ${c.reply}</div>
-            ` : `
-                <div style="display:flex; gap:10px; margin-top:0.5rem;">
-                    <input type="text" id="dev-reply-${g.id}-${index}" placeholder="Escribir respuesta oficial de autor..." style="flex:1; padding:0.4rem; border-radius:6px; border:1px solid #cbd5e1; font-size:0.9rem;">
-                    <button class="btn-p" style="width:auto; padding:0.4rem 1rem; font-size:0.85rem;" onclick="sendDevReply(${g.id}, ${index})">Remitir Réplica</button>
-                </div>
-            `}
-        </div>
-    `).join('')).join('');
+    showNotification("Conectando con la entidad bancaria...");
+    setTimeout(() => {
+        cart = [];
+        localStorage.removeItem('nexus_cart');
+        updateCartDOM();
+        closePaymentPasarela();
+        showNotification("🔒 Transacción aprobada. Títulos transferidos.");
+        showSection('library');
+    }, 1500);
 }
 
-function sendDevReply(gameId, index) {
-    const input = document.getElementById(`dev-reply-${gameId}-${index}`);
-    if (!input.value || !input.value.trim()) return;
+// --- COMENTARIOS / BIBLIOTECA ---
+function renderLibrary() {
+    const container = document.getElementById('library-games');
+    if (!container) return;
 
-    const game = games.find(g => g.id === gameId);
-    game.comments[index].reply = input.value;
-    renderDevPanel();
+    const mockUserGames = [
+        { id: 1, titulo: "TEKKEN 8" },
+        { id: 6, titulo: "*Furi" }
+    ];
+
+    fetch(`${API_URL}/comentarios`)
+        .then(res => res.json())
+        .then(allComments => {
+            container.innerHTML = mockUserGames.map(g => {
+                const filteredComments = allComments.filter(c => c.id_juego === g.id);
+                return `
+                    <div class="card" style="margin-bottom:1.5rem; border-left:4px solid var(--p);">
+                        <h3>🎮 Licencia activa: ${g.titulo}</h3>
+                        <div style="background:var(--bg); padding:1rem; border-radius:8px; margin-bottom:1rem;">
+                            <h4 style="margin-top:0; color:var(--text-muted);">Soporte Técnico:</h4>
+                            ${filteredComments.length === 0 ? '<p style="color:var(--text-muted); font-size:0.9rem; margin:0;">Sin hilos abiertos.</p>' : filteredComments.map(c => `
+                                <div style="border-bottom:1px solid #e2e8f0; padding:0.5rem 0;">
+                                    <p style="margin:0;"><b>${c.usuario_nombre}:</b> "${c.mensaje}"</p>
+                                    ${c.respuesta_dev ? `<p style="margin:5px 0 0 20px; color:var(--p); font-weight:500;"><b>Desarrollador:</b> "${c.respuesta_dev}"</p>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="feed-msg-${g.id}" placeholder="Escribe tu consulta aquí..." style="flex:1; padding:0.6rem; border-radius:6px; border:1px solid #cbd5e1;">
+                            <button class="btn-p" style="width:auto;" onclick="sendFeedback(${g.id})">Enviar Feedback</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        });
+}
+
+function sendFeedback(gameId) {
+    const input = document.getElementById(`feed-msg-${gameId}`);
+    if (!input || !input.value.trim()) return showNotification("Campo de feedback vacío.", "error");
+
+    fetch(`${API_URL}/comentarios`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_juego: gameId, mensaje: input.value })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showNotification("✅ Feedback registrado en el servidor.");
+            renderLibrary();
+        }
+    });
+}
+
+// --- PANEL DEV ---
+function renderDevPanel() {
+    const list = document.getElementById('dev-comments-list');
+    if (!list) return;
+
+    fetch(`${API_URL}/comentarios`)
+        .then(res => res.json())
+        .then(comments => {
+            list.innerHTML = comments.map(c => `
+                <div style="background:#f8fafc; padding:1rem; border-radius:8px; margin-bottom:1rem; border:1px solid #e2e8f0;">
+                    <p style="margin:0 0 6px 0; font-size:0.9rem; color:var(--text-muted);"><b>Línea comercial:</b> ${c.juego_titulo}</p>
+                    <p style="margin:0 0 1rem 0; font-weight:500;">"${c.mensaje}"</p>
+                    ${c.respuesta_dev ? `
+                        <div style="background:rgba(99,102,241,0.06); padding:0.6rem; border-left:3px solid var(--p);">
+                            <b>Tu Réplica:</b> "${c.respuesta_dev}"
+                        </div>
+                    ` : `
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="dev-rep-${c.id}" placeholder="Formular respuesta..." style="flex:1; padding:0.5rem; border-radius:6px; border:1px solid #cbd5e1;">
+                            <button class="btn-s" style="width:auto;" onclick="sendDevReply(${c.id})">Responder</button>
+                        </div>
+                    `}
+                </div>
+            `).join('');
+        });
+}
+
+function sendDevReply(commentId) {
+    const input = document.getElementById(`dev-rep-${commentId}`);
+    if (!input || !input.value.trim()) return showNotification("Campo vacío.", "error");
+
+    fetch(`${API_URL}/comentarios/${commentId}/respuesta`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ respuesta_dev: input.value })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showNotification("✅ Réplica archivada.");
+            renderDevPanel();
+        }
+    });
 }
 
 function publishGame() {
     const title = document.getElementById('new-title').value;
-    const price = parseFloat(document.getElementById('new-price').value);
+    const precio = parseFloat(document.getElementById('new-price').value); // ¡Corregido aquí!
 
-    if (!title || isNaN(price)) {
-        alert("Por favor, cumplimente todos los campos con datos lógicos.");
+    if (!title || isNaN(precio)) {
+        showNotification("Por favor, introduce un título y precio válidos.", "error");
         return;
     }
 
-    games.push({
-        id: Date.now(),
-        title: title,
-        price: price,
-        dev: currentUser.email,
-        comments: []
+    fetch(`${API_URL}/juegos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titulo: title, precio: precio })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`¡"${title}" se ha publicado con persistencia real!`);
+            document.getElementById('new-title').value = '';
+            document.getElementById('new-price').value = '';
+            renderDevPanel();
+        }
     });
+}
 
-    alert("¡Proyecto Indie inyectado al Catálogo Global satisfactoriamente!");
-    document.getElementById('new-title').value = "";
-    document.getElementById('new-price').value = "";
-    renderDevPanel();
+function logout() {
+    currentUser = null;
+    document.getElementById('auth-btns').classList.remove('hidden');
+    document.getElementById('user-menu').classList.add('hidden');
+    const oldCounter = document.getElementById('cart-counter');
+    if (oldCounter) oldCounter.remove();
+    showSection('login');
+    showNotification("Sesión cerrada.");
 }
