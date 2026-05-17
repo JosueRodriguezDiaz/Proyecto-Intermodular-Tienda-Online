@@ -1,0 +1,172 @@
+:root { 
+    --p: #6366f1; 
+    --s: #0f172a; 
+    --a: #f43f5e; 
+    --success: #10b981; 
+    --bg: #f8fafc; 
+    --card-bg: #ffffff;
+    --text-main: #334155;
+    --text-muted: #64748b;
+}
+
+body { 
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+    margin: 0; 
+    background: var(--bg); 
+    color: var(--text-main); 
+    line-height: 1.6; 
+}
+
+.hidden { display: none !important; }
+
+/* Barra de Navegación */
+nav { 
+    background: var(--s); 
+    color: white; 
+    padding: 1.2rem 8%; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    position: sticky; 
+    top: 0; 
+    z-index: 1000; 
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+.logo { 
+    font-weight: 800; 
+    font-size: 1.6rem; 
+    cursor: pointer; 
+    letter-spacing: -0.5px;
+}
+.logo span { color: var(--p); }
+.nav-btns { display: flex; gap: 15px; align-items: center; }
+
+/* Contenedor Principal */
+.container { max-width: 1200px; margin: 3rem auto; padding: 0 1.5rem; }
+
+/* Tarjetas Estilizadas */
+.card { 
+    background: var(--card-bg); 
+    padding: 2.5rem; 
+    border-radius: 16px; 
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04); 
+    margin-bottom: 2rem;
+    border: 1px solid rgba(0,0,0,0.03);
+    transition: transform 0.3s ease;
+}
+
+/* Sección de Autenticación */
+.card-auth { max-width: 450px; margin: 5rem auto; text-align: center; }
+.card-auth h2 { margin-top: 0; color: var(--s); font-size: 2rem; }
+.card-auth input { 
+    width: 100%; 
+    padding: 0.85rem; 
+    margin: 0.8rem 0; 
+    border: 1px solid #cbd5e1; 
+    border-radius: 8px; 
+    box-sizing: border-box;
+    font-size: 1rem;
+    transition: all 0.3s;
+}
+.card-auth input:focus {
+    outline: none;
+    border-color: var(--p);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+}
+.label-rgpd { 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    font-size: 0.85rem; 
+    color: var(--text-muted); 
+    margin: 1rem 0;
+    text-align: left;
+}
+
+/* Botones */
+.btn-p { 
+    background: var(--p); 
+    color: white; 
+    border: none; 
+    padding: 0.85rem 1.8rem; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    font-weight: 600; 
+    font-size: 1rem;
+    transition: all 0.2s;
+    width: 100%;
+}
+.btn-p:hover { background: #4f46e5; transform: translateY(-1px); }
+.btn-s { 
+    background: transparent; 
+    color: white; 
+    border: 1px solid rgba(255,255,255,0.3); 
+    padding: 0.6rem 1.2rem; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    font-weight: 500;
+    transition: all 0.2s;
+}
+.btn-s:hover { background: rgba(255,255,255,0.1); border-color: white; }
+.btn-logout { background: var(--a); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: 600; }
+
+/* Grid de la Tienda de Juegos */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 2rem; margin-top: 1.5rem; }
+.game-card { 
+    background: white; 
+    border-radius: 14px; 
+    overflow: hidden; 
+    box-shadow: 0 4px 20px rgba(0,0,0,0.02); 
+    border: 1px solid rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+}
+.game-card:hover { transform: translateY(-5px); box-shadow: 0 12px 30px rgba(0,0,0,0.08); }
+.game-card h3 { margin: 0 0 0.5rem 0; color: var(--s); font-size: 1.3rem; }
+.game-card .price { font-size: 1.4rem; font-weight: 700; color: var(--p); margin: 0.5rem 0; }
+.game-card .dev-tag { font-size: 0.8rem; color: var(--text-muted); background: #f1f5f9; padding: 0.2rem 0.6rem; border-radius: 4px; display: inline-block; }
+
+/* Badges de Roles */
+.role-badge { 
+    padding: 0.4rem 1rem; 
+    border-radius: 50px; 
+    font-size: 0.85rem; 
+    font-weight: 700; 
+    letter-spacing: 0.5px;
+}
+.badge-user { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+.badge-dev { background: rgba(99, 102, 241, 0.15); color: var(--p); }
+.badge-admin { background: rgba(244, 63, 94, 0.15); color: var(--a); }
+
+/* Gráfico Analítico (Panel Dev) */
+.chart { display: flex; height: 180px; align-items: flex-end; gap: 20px; background: #f8fafc; padding: 2rem; border-radius: 12px; margin: 1.5rem 0; border: 1px dashed #e2e8f0; }
+.bar { flex: 1; background: linear-gradient(180deg, var(--p) 0%, #4f46e5 100%); border-radius: 6px 6px 0 0; animation: grow 1s ease-out; }
+.chart-label { text-align: center; font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }
+
+/* Estilos de Comentarios y Biblioteca */
+.comment-box { background: #f1f5f9; padding: 1rem; border-radius: 8px; margin-top: 1rem; font-size: 0.95rem; }
+.reply-box { background: rgba(99, 102, 241, 0.08); border-left: 4px solid var(--p); padding: 0.8rem; margin-top: 0.5rem; border-radius: 0 8px 8px 0; }
+
+/* Contenedor adaptativo de portadas */
+.game-card-img-container {
+    width: 100%;
+    height: 160px; /* Asegura un alto fijo visible */
+    overflow: hidden;
+    margin-bottom: 1.2rem;
+    border-radius: 8px;
+    background: #e2e8f0; /* Si la imagen falla, se verá este fondo gris limpio */
+}
+
+/* Ajuste del elemento imagen nativo */
+.game-card-img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover; /* Evita deformaciones recortando el exceso */
+    object-position: center;
+}
+
+@keyframes grow { from { height: 0; } }

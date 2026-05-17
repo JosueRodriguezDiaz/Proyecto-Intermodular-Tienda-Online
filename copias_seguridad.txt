@@ -1,0 +1,1 @@
+Script de backup automático diario:\nmysqldump -u root -p pixel_pro > backup_$(date +%F).sql
