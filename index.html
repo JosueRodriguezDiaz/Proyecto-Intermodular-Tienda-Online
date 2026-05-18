@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nexus Games Pro - Community Edition</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,6 +17,7 @@
     <div class="nav-btns hidden" id="user-menu">
         <button class="btn-s" onclick="showSection('shop')">Tienda General</button>
         <button class="btn-s" id="btn-my-games" onclick="showSection('library')">Mi Biblioteca</button>
+        <button class="btn-s hidden" id="btn-panel-rol" onclick="redirectToRolePanel()">Mi Panel</button>
         <span id="role-badge" class="role-badge"></span>
         <button onclick="logout()" class="btn-logout">Cerrar Sesión</button>
     </div>
@@ -85,11 +87,26 @@
                 </div>
                 <button class="btn-p" style="background:var(--s);" onclick="showNotification('Ejecutando script: Copia de seguridad guardada en backup_db.sql')">Forzar Volcado de Backup Manual</button>
             </div>
+            <section id="sec-admin" class="hidden">
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px; margin-bottom: 2rem;">
+            <div class="card" style="border-top:4px solid var(--a);">
+                <h2>Panel Maestro de Auditoría Perimetral</h2>
+                <div style="margin:1.5rem 0; padding:1rem; background:#fff1f2; border-radius:8px; border:1px solid #fecdd3;">
+                    <p style="margin:0; color:#9f1239; font-weight:600;">🛡️ Estado del Cortafuegos: Activo</p>
+                </div>
+                <button class="btn-p" style="background:var(--s);" onclick="showNotification('Ejecutando script: Copia de seguridad guardada en backup_db.sql')">Forzar Volcado de Backup Manual</button>
+            </div>
             <div class="card" style="background:var(--s); color:white;">
                 <h3 style="color:white; margin-top:0;">Versión Activa</h3>
                 <p style="font-size:2rem; font-weight:800; color:var(--a); margin:0;">v2.1.0</p>
                 <p style="font-size:0.85rem; color:#94a3b8; margin-top:10px;">Servicios y réplicas en clúster estables.</p>
             </div>
+        </div>
+
+        <div class="card">
+            <h3>🛡️ Moderación Global de Feedback e Incidencias</h3>
+            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">Como administrador maestro, puede eliminar logs o comentarios inapropiados del sistema.</p>
+            <div id="admin-audit-comments"></div>
         </div>
     </section>
 </div>

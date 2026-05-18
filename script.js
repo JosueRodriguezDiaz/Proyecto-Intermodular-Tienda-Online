@@ -42,8 +42,8 @@ function showSection(sectionId) {
     if (sectionId === 'shop') renderStore();
     if (sectionId === 'library') renderLibrary();
     if (sectionId === 'dev') renderDevPanel();
+    if (sectionId === 'admin') renderAdminPanel();
 }
-
 // --- LOGIN ---
 function login() {
     const email = document.getElementById('login-email').value;
@@ -71,7 +71,25 @@ function login() {
             badge.className = `role-badge badge-${currentUser.rol.toLowerCase()}`;
 
             document.getElementById('btn-my-games').classList.toggle('hidden', currentUser.rol === 'ADMIN');
+
+            // Mostramos el botón de "Mi Panel" si el usuario no es un USER normal
+            const btnPanelRol = document.getElementById('btn-panel-rol');
+            if (btnPanelRol) {
+                btnPanelRol.classList.toggle('hidden', currentUser.rol === 'USER');
+            }
             
+            // --- INICIALIZACIÓN DE BIBLIOTECA EXCLUSIVA POR USUARIO ---
+            // Solo si este correo no tiene historial en LocalStorage, le damos sus juegos base
+            const storageKey = `nexus_owned_games_${currentUser.email}`;
+            if (!localStorage.getItem(storageKey)) {
+                const juegosPorDefecto = [
+                    { id: 1, titulo: "TEKKEN 8" },
+                    { id: 6, titulo: "Furi" }
+                ];
+                localStorage.setItem(storageKey, JSON.stringify(juegosPorDefecto));
+            }
+            // ---------------------------------------------------------
+
             // Redirección inteligente de paneles según rol
             if (currentUser.rol === 'DEV') {
                 showSection('dev');
@@ -95,21 +113,40 @@ function renderStore() {
     fetch(`${API_URL}/juegos`)
         .then(res => res.json())
         .then(games => {
-            list.innerHTML = games.map(g => `
-                <div class="card" style="display:flex; flex-direction:column; justify-content:space-between; height:340px; padding:1rem;">
+            list.innerHTML = games.map(g => {
+                // Comprobamos si el usuario activo es administrador
+                const isAdmin = currentUser && currentUser.rol === 'ADMIN';
+                
+                return `
+                <div class="card" style="display:flex; flex-direction:column; justify-content:space-between; height:380px; padding:1rem; border: ${isAdmin ? '2px dashed var(--a)' : '1px solid rgba(0,0,0,0.04)'};">
                     <div style="text-align:center;">
-                        <img src="${g.imagen || 'https://via.placeholder.com/150x200?text=Nexus+Games'}" 
-                             alt="${g.titulo}" 
-                             style="width:100%; height:180px; object-fit:cover; border-radius:8px; margin-bottom:0.8rem;">
+                        <div class="game-card-img-container">
+                            ${g.imagen ? `
+                                <img src="${g.imagen}" alt="${g.titulo}" class="game-card-img">
+                            ` : `
+                                <div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-weight:600; font-size:0.9rem;">
+                                    📸 Sin portada
+                                </div>
+                            `}
+                        </div>
                         
                         <h3 style="margin:0 0 0.3rem 0; font-size:1.15rem; text-align:left;">${g.titulo}</h3>
                         <p class="price" style="font-size:1.3rem; font-weight:700; color:var(--p); margin:0; text-align:left;">${g.precio} €</p>
                     </div>
-                    <button class="btn-p" style="margin-top:auto; width:100%;" onclick="addToCart(${g.id}, '${g.titulo.replace(/'/g, "\\'")}', ${g.precio})">
-                        Agregar al Carrito
-                    </button>
+                    
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-top:auto;">
+                        <button class="btn-p" style="width:100%;" onclick="addToCart(${g.id}, '${g.titulo.replace(/'/g, "\\'")}', ${g.precio})">
+                            Agregar al Carrito
+                        </button>
+                        ${isAdmin ? `
+                            <button class="btn-logout" style="width:100%; padding:0.5rem; font-size:0.9rem; background:var(--a);" onclick="deleteGameMaster(${g.id})">
+                                🗑️ Eliminar Producto
+                            </button>
+                        ` : ''}
+                    </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         });
 }
 
@@ -239,7 +276,7 @@ function removeFromCart(id) {
 
 function closePaymentPasarela() {
     const modal = document.getElementById('payment-modal');
-    modal.classList.add('hidden'); // ¡Añadimos hidden para que se oculte!
+    modal.classList.add('hidden'); 
     modal.style.display = 'none';
 }
 
@@ -259,6 +296,22 @@ function processSecurePayment() {
 
     showNotification("Conectando con la entidad bancaria...");
     setTimeout(() => {
+        // 1. Apuntamos a la biblioteca exclusiva de este usuario
+        const storageKey = `nexus_owned_games_${currentUser.email}`;
+        let ownedGames = JSON.parse(localStorage.getItem(storageKey)) || [];
+        
+        // 2. ¡AQUÍ ESTÁ LA CLAVE! Recorremos ÚNICAMENTE los elementos reales del carrito (cart)
+        cart.forEach(item => {
+            // Validamos que el juego no estuviera ya comprado para no duplicarlo
+            if (!ownedGames.some(g => g.id === item.id)) {
+                ownedGames.push({ id: item.id, titulo: item.titulo });
+            }
+        });
+        
+        // 3. Guardamos los cambios en su cuenta
+        localStorage.setItem(storageKey, JSON.stringify(ownedGames));
+
+        // 4. Limpiamos carrito y cerramos pasarela
         cart = [];
         localStorage.removeItem('nexus_cart');
         updateCartDOM();
@@ -268,20 +321,85 @@ function processSecurePayment() {
     }, 1500);
 }
 
+// --- FUNCIONES EXCLUSIVAS DE ADMINISTRACIÓN (BORRADO) ---
+
+function deleteGameMaster(gameId) {
+    if (!confirm("⚠️ ¿Estás completamente seguro de eliminar este juego? Se borrarán también todas sus consultas de soporte técnico asociadas.")) return;
+
+    fetch(`${API_URL}/juegos/${gameId}`, {
+        method: 'DELETE'
+    })
+    .then(res => res.json())
+    .then(data => {
+        showNotification("💥 Juego purgado del catálogo global.");
+        renderStore(); // Refrescamos la tienda
+        if (currentUser.rol === 'ADMIN') renderAdminPanel(); // Refrescamos el listado del admin si existe
+    })
+    .catch(() => showNotification("Error al intentar procesar el borrado.", "error"));
+}
+
+function deleteCommentMaster(commentId) {
+    if (!confirm("¿Deseas eliminar este registro de comentario de la base de datos?")) return;
+
+    fetch(`${API_URL}/comentarios/${commentId}`, {
+        method: 'DELETE'
+    })
+    .then(res => res.json())
+    .then(data => {
+        showNotification("🗑️ Registro de feedback destruido con éxito.");
+        renderAdminPanel(); // Refrescamos el panel de auditoría
+    })
+    .catch(() => showNotification("Error al intentar borrar el comentario.", "error"));
+}
+
+function renderAdminPanel() {
+    const listContainer = document.getElementById('admin-audit-comments');
+    if (!listContainer) return;
+
+    fetch(`${API_URL}/comentarios`)
+        .then(res => res.json())
+        .then(comments => {
+            if (comments.length === 0) {
+                listContainer.innerHTML = '<p style="color:var(--text-muted);">No hay logs de comentarios activos en la plataforma.</p>';
+                return;
+            }
+
+            listContainer.innerHTML = comments.map(c => `
+                <div style="background:#f8fafc; padding:1rem; border-radius:8px; margin-bottom:1rem; border:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <p style="margin:0 0 4px 0; font-size:0.85rem; color:var(--text-muted);"><b>Juego ID ${c.id_juego}:</b> ${c.juego_titulo} | <b>De:</b> ${c.usuario_nombre}</p>
+                        <p style="margin:0; font-style:italic;">"${c.mensaje}"</p>
+                    </div>
+                    <button class="btn-logout" style="padding:0.4rem 0.8rem; font-size:0.85rem; background:var(--a);" onclick="deleteCommentMaster(${c.id})">
+                        Eliminar Log
+                    </button>
+                </div>
+            `).join('');
+        });
+}
+
 // --- COMENTARIOS / BIBLIOTECA ---
 function renderLibrary() {
     const container = document.getElementById('library-games');
     if (!container) return;
 
-    const mockUserGames = [
-        { id: 1, titulo: "TEKKEN 8" },
-        { id: 6, titulo: "*Furi" }
-    ];
+    if (!currentUser) {
+        container.innerHTML = '<p style="color:var(--text-muted);">Inicia sesión para ver tu biblioteca.</p>';
+        return;
+    }
+
+    const storageKey = `nexus_owned_games_${currentUser.email}`;
+    const userGames = JSON.parse(localStorage.getItem(storageKey)) || [];
+
+    if (userGames.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:2rem;">Tu biblioteca está vacía. ¡Visita la tienda para adquirir juegos!</p>';
+        return;
+    }
 
     fetch(`${API_URL}/comentarios`)
         .then(res => res.json())
         .then(allComments => {
-            container.innerHTML = mockUserGames.map(g => {
+            container.innerHTML = userGames.map(g => {
                 const filteredComments = allComments.filter(c => c.id_juego === g.id);
                 return `
                     <div class="card" style="margin-bottom:1.5rem; border-left:4px solid var(--p);">
@@ -297,7 +415,7 @@ function renderLibrary() {
                         </div>
                         <div style="display:flex; gap:10px;">
                             <input type="text" id="feed-msg-${g.id}" placeholder="Escribe tu consulta aquí..." style="flex:1; padding:0.6rem; border-radius:6px; border:1px solid #cbd5e1;">
-                            <button class="btn-p" style="width:auto;" onclick="sendFeedback(${g.id})">Enviar Feedback</button>
+                            <button type="button" class="btn-p" style="width:auto;" onclick="sendFeedback(${g.id})">Enviar Feedback</button>
                         </div>
                     </div>
                 `;
@@ -307,42 +425,73 @@ function renderLibrary() {
 
 function sendFeedback(gameId) {
     const input = document.getElementById(`feed-msg-${gameId}`);
-    if (!input || !input.value.trim()) return showNotification("Campo de feedback vacío.", "error");
+    if (!input || !input.value.trim()) {
+        showNotification("No puedes transmitir una consulta vacía.", "error");
+        return;
+    }
+
+    // Validación estricta para evitar corromper la sesión asíncrona
+    if (!currentUser) {
+        showNotification("Sesión no válida. Por favor, identifícate.", "error");
+        return;
+    }
+
+    const nombreUsuario = currentUser.username;
 
     fetch(`${API_URL}/comentarios`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_juego: gameId, mensaje: input.value })
+        body: JSON.stringify({ 
+            id_juego: gameId, 
+            mensaje: input.value,
+            usuario_nombre: nombreUsuario 
+        })
     })
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            showNotification("✅ Feedback registrado en el servidor.");
-            renderLibrary();
+            showNotification("🚀 Consulta de soporte indexada con éxito.");
+            input.value = '';
+            // Renderizamos la biblioteca asegurando que currentUser sigue intacto
+            renderLibrary(); 
         }
-    });
+    })
+    .catch(() => showNotification("Error al conectar con el servidor de feedback.", "error"));
 }
 
 // --- PANEL DEV ---
 function renderDevPanel() {
-    const list = document.getElementById('dev-comments-list');
-    if (!list) return;
+    const listContainer = document.getElementById('dev-comments-list');
+    if (!listContainer) return;
 
     fetch(`${API_URL}/comentarios`)
         .then(res => res.json())
         .then(comments => {
-            list.innerHTML = comments.map(c => `
-                <div style="background:#f8fafc; padding:1rem; border-radius:8px; margin-bottom:1rem; border:1px solid #e2e8f0;">
-                    <p style="margin:0 0 6px 0; font-size:0.9rem; color:var(--text-muted);"><b>Línea comercial:</b> ${c.juego_titulo}</p>
-                    <p style="margin:0 0 1rem 0; font-weight:500;">"${c.mensaje}"</p>
+            if (comments.length === 0) {
+                listContainer.innerHTML = '<p style="color:var(--text-muted);">No hay consultas pendientes de soporte.</p>';
+                return;
+            }
+
+            listContainer.innerHTML = comments.map(c => `
+                <div style="background:#f8fafc; padding:1rem; border-radius:8px; margin-bottom:1rem; border:1px solid #e2e8f0; position: relative;">
+                    
+                    <button type="button" 
+                            style="position: absolute; top: 10px; right: 10px; background: var(--a); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;" 
+                            onclick="deleteCommentMasterDev(${c.id})">
+                        🗑️ Eliminar
+                    </button>
+
+                    <p style="margin:0 80px 4px 0; font-size:0.85rem; color:var(--text-muted); text-align: left;">
+                        <b>Juego:</b> ${c.juego_titulo} | <b>Usuario:</b> ${c.usuario_nombre}
+                    </p>
+                    <p style="margin:0 0 10px 0; font-style:italic; text-align: left;">"${c.mensaje}"</p>
+                    
                     ${c.respuesta_dev ? `
-                        <div style="background:rgba(99,102,241,0.06); padding:0.6rem; border-left:3px solid var(--p);">
-                            <b>Tu Réplica:</b> "${c.respuesta_dev}"
-                        </div>
+                        <p style="margin:0; color:var(--success); font-weight:600; text-align: left;">✓ Respondido: "${c.respuesta_dev}"</p>
                     ` : `
-                        <div style="display:flex; gap:10px;">
-                            <input type="text" id="dev-rep-${c.id}" placeholder="Formular respuesta..." style="flex:1; padding:0.5rem; border-radius:6px; border:1px solid #cbd5e1;">
-                            <button class="btn-s" style="width:auto;" onclick="sendDevReply(${c.id})">Responder</button>
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                            <input type="text" id="dev-rep-${c.id}" placeholder="Escribe la solución técnica..." style="flex:1; padding:0.5rem; border-radius:6px; border:1px solid #cbd5e1; font-size:0.9rem;">
+                            <button type="button" class="btn-p" style="width:auto; padding:0.5rem 1rem; font-size:0.9rem;" onclick="sendDevReply(${c.id})">Responder</button>
                         </div>
                     `}
                 </div>
@@ -350,9 +499,32 @@ function renderDevPanel() {
         });
 }
 
+// FUNCIÓN AUXILIAR DE BORRADO EXCLUSIVA PARA EL REFRESCO DEL DEV
+function deleteCommentMasterDev(commentId) {
+    if (!confirm("¿Deseas eliminar permanentemente esta incidencia de soporte?")) return;
+
+    fetch(`${API_URL}/comentarios/${commentId}`, {
+        method: 'DELETE'
+    })
+    .then(res => res.json())
+    .then(data => {
+        showNotification("🗑️ Feedback eliminado del sistema.");
+        renderDevPanel(); // Refresca instantáneamente el panel del desarrollador sin desloguear
+    })
+    .catch(() => showNotification("Error al intentar borrar el comentario.", "error"));
+}
+
 function sendDevReply(commentId) {
     const input = document.getElementById(`dev-rep-${commentId}`);
-    if (!input || !input.value.trim()) return showNotification("Campo vacío.", "error");
+    if (!input || !input.value.trim()) {
+        showNotification("Campo vacío.", "error");
+        return;
+    }
+
+    if (!currentUser) {
+        showNotification("Sesión inválida o expirada.", "error");
+        return;
+    }
 
     fetch(`${API_URL}/comentarios/${commentId}/respuesta`, {
         method: 'PUT',
@@ -363,9 +535,11 @@ function sendDevReply(commentId) {
     .then(data => {
         if (data.success) {
             showNotification("✅ Réplica archivada.");
+            // Refrescamos el panel manteniendo la sesión activa
             renderDevPanel();
         }
-    });
+    })
+    .catch(() => showNotification("Error al procesar la respuesta en el backend.", "error"));
 }
 
 function publishGame() {
@@ -393,12 +567,34 @@ function publishGame() {
     });
 }
 
+// --- REDIRECCIÓN AL PANEL DE TRABAJO SEGÚN EL ROL ACTIVO ---
+function redirectToRolePanel() {
+    if (!currentUser) return;
+    
+    if (currentUser.rol === 'DEV') {
+        showSection('dev');
+    } else if (currentUser.rol === 'ADMIN') {
+        showSection('admin');
+    } else {
+        showSection('shop');
+    }
+}
+
 function logout() {
     currentUser = null;
     document.getElementById('auth-btns').classList.remove('hidden');
     document.getElementById('user-menu').classList.add('hidden');
+    
+    // --- NUEVA LÓGICA: Ocultar el botón del panel al cerrar sesión ---
+    const btnPanelRol = document.getElementById('btn-panel-rol');
+    if (btnPanelRol) {
+        btnPanelRol.classList.add('hidden');
+    }
+    // -----------------------------------------------------------------
+
     const oldCounter = document.getElementById('cart-counter');
     if (oldCounter) oldCounter.remove();
+    
     showSection('login');
     showNotification("Sesión cerrada.");
 }

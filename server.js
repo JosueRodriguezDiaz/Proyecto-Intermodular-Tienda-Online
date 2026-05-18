@@ -79,7 +79,8 @@ app.get('/api/comentarios', (req, res) => {
 });
 
 app.post('/api/comentarios', (req, res) => {
-    const { id_juego, mensaje } = req.body;
+    // Capturamos el usuario_nombre que viene desde el script.js
+    const { id_juego, mensaje, usuario_nombre } = req.body;
     if (!id_juego || !mensaje) return res.status(400).json({ error: 'Parámetros inconsistentes' });
 
     const juego = catálogoJuegos.find(g => g.id === parseInt(id_juego));
@@ -91,7 +92,8 @@ app.post('/api/comentarios', (req, res) => {
         mensaje,
         respuesta_dev: null,
         juego_titulo: tituloJuego,
-        usuario_nombre: "Invitado Nexus"
+        // Usamos el nombre enviado, si no viene ninguno dejamos el de por defecto
+        usuario_nombre: usuario_nombre || "Invitado Nexus"
     };
 
     historialComentarios.push(nuevoComentario);
@@ -109,6 +111,42 @@ app.put('/api/comentarios/:id/respuesta', (req, res) => {
     comentario.respuesta_dev = respuesta_dev;
     guardarDatos(COMENTARIOS_FILE, historialComentarios);
     res.json({ success: true });
+});
+
+// Eliminar un juego del catálogo
+app.delete('/api/juegos/:id', (req, res) => {
+    const juegoId = parseInt(req.params.id);
+    
+    // Filtramos para eliminar el juego
+    const longitudInicial = catálogoJuegos.length;
+    catálogoJuegos = catálogoJuegos.filter(g => g.id !== juegoId);
+    
+    if (catálogoJuegos.length === longitudInicial) {
+        return res.status(404).json({ error: 'Juego no encontrado' });
+    }
+    
+    // También eliminamos los comentarios asociados a ese juego de forma automática
+    historialComentarios = historialComentarios.filter(c => c.id_juego !== juegoId);
+    
+    guardarDatos(JUEGOS_FILE, catálogoJuegos);
+    guardarDatos(COMENTARIOS_FILE, historialComentarios);
+    
+    res.json({ success: true, message: 'Juego y sus comentarios eliminados' });
+});
+
+// Eliminar un comentario/incidencia individual
+app.delete('/api/comentarios/:id', (req, res) => {
+    const comentarioId = parseInt(req.params.id);
+    
+    const longitudInicial = historialComentarios.length;
+    historialComentarios = historialComentarios.filter(c => c.id !== comentarioId);
+    
+    if (historialComentarios.length === longitudInicial) {
+        return res.status(404).json({ error: 'Comentario no encontrado' });
+    }
+    
+    guardarDatos(COMENTARIOS_FILE, historialComentarios);
+    res.json({ success: true, message: 'Comentario eliminado del historial' });
 });
 
 app.listen(PORT, () => console.log('📡 Endpoints API REST activos en http://localhost:' + PORT));
